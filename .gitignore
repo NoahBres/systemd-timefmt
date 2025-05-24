@@ -4,5 +4,8 @@ target/
 # Nix direnv
 .direnv/
 
+# Nix output
+result
+
 # macOS generated files
 .DS_Store
