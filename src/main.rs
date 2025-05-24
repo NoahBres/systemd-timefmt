@@ -54,7 +54,7 @@ For more details, see {link}.
 
 #[derive(Parser)]
 #[clap(
-    version, 
+    version,
     about,
     long_about = &long_about()
 )]
