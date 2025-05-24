@@ -1,0 +1,8 @@
+# Rust build
+target/
+
+# Nix direnv
+.direnv/
+
+# macOS generated files
+.DS_Store
