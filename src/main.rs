@@ -1,14 +1,15 @@
-use clap::Parser;
-use chrono_systemd_time::parse_timestamp_tz;
 use chrono::{Local, Utc};
-use std::process::exit;
+use chrono_systemd_time::parse_timestamp_tz;
+use clap::Parser;
 use regex::Regex;
+use std::process;
 
-const SYSTEMD_TIME_URL: &str = "https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html";
+const SYSTEMD_TIME_URL: &str =
+    "https://www.freedesktop.org/software/systemd/man/latest/systemd.time.html";
 
 fn long_about() -> String {
     format!(
-"Parse systemd.time string specifications and output formatted timestamps.
+        "Parse systemd.time string specifications and output formatted timestamps.
 
 EXAMPLES:
     systemd-timefmt \"now -1hr\"
@@ -22,16 +23,16 @@ EXAMPLES:
 Supports systemd.time format, including relative times (now, today, yesterday, tomorrow),
 absolute timestamps, epoch times, and time arithmetic with units like h, m, s, d, w, M, y.
 
-For more details: {}", SYSTEMD_TIME_URL
+For more details: {}",
+        SYSTEMD_TIME_URL
     )
 }
 
 /// If the input looks like a joined special token and offset (e.g. "now-1hr"), print a hint.
 fn print_heuristic_hint(input: &str) {
-    // Regex that matches: ^(now|today|yesterday|tomorrow)[+-]
-    let re = Regex::new(r"^(now|today|yesterday|tomorrow)[+-]").unwrap();
+    let re = Regex::new(r"^(now|today|yesterday|tomorrow)[+-]").expect("invalid regex");
     if let Some(caps) = re.captures(input) {
-        let token      = &caps[1];
+        let token = &caps[1];
         let suggestion = format!("{} {}", token, &input[token.len()..]);
 
         eprintln!(
@@ -50,7 +51,6 @@ For more details, see {link}.
         );
     }
 }
-
 
 #[derive(Parser)]
 #[clap(
@@ -71,32 +71,38 @@ struct Args {
     format: String,
 }
 
+/// Generic function to handle time parsing for any timezone
+fn handle_time_parsing<Tz: chrono::TimeZone>(
+    timespec: &str,
+    format: &str,
+    timezone: Tz,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    Tz::Offset: std::fmt::Display,
+{
+    match parse_timestamp_tz(timespec, timezone) {
+        Ok(parsed) => {
+            println!("{}", parsed.format(format));
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("Error parsing time: {}", e);
+            print_heuristic_hint(timespec);
+            Err(e.into())
+        }
+    }
+}
+
 fn main() {
     let args = Args::parse();
 
-    // Note: need separate parse_timestamp_tz() calls in the if/else block because
-    // the timezone field in parse_timestamp_tz is templated and requires distinct calls.
-    if args.utc {
-        match parse_timestamp_tz(&args.timespec, Utc) {
-            Ok(parsed) => {
-                println!("{}", format!("{}", parsed.format(&args.format)));
-            }
-            Err(e) => {
-                eprintln!("Error parsing time: {}", e);
-                print_heuristic_hint(&args.timespec);
-                exit(1);
-            }
-        }
+    let result = if args.utc {
+        handle_time_parsing(&args.timespec, &args.format, Utc)
     } else {
-        match parse_timestamp_tz(&args.timespec, Local) {
-            Ok(parsed) => {
-                println!("{}", format!("{}", parsed.format(&args.format)));
-            }
-            Err(e) => {
-                eprintln!("Error parsing time: {}", e);
-                print_heuristic_hint(&args.timespec);
-                exit(1);
-            }
-        }
+        handle_time_parsing(&args.timespec, &args.format, Local)
+    };
+
+    if result.is_err() {
+        process::exit(1);
     }
 }
