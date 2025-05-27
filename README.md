@@ -11,6 +11,12 @@ A CLI utility that parses [systemd.time](https://www.freedesktop.org/software/sy
 
 ## Installation
 
+Nix Flakes:
+```
+nix run github:NoahBres/systemd-timefmt
+```
+
+Cargo:
 ```bash
 cargo install --path .
 ```
